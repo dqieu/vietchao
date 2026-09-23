@@ -1,3 +1,4 @@
+import {toDwg} from './dwg.mjs?v=20260923';
 import {drawingPairFor} from './cad-pair.mjs?v=20260921-compact';
 import {sectionDrawingFor} from './cad-section.mjs?v=20260921-compact';
 import {planGeometry,geometryLabels} from './cad-geometry.mjs?v=20260921-compact';
@@ -45,8 +46,8 @@ if(document.modelContext?.registerTool){
 }
 
 const cadDialog=document.createElement('dialog');cadDialog.className='cad-dialog';
-cadDialog.innerHTML='<div class="cad-toolbar"><h2>Bản vẽ CAD dự thảo</h2><button type="button" data-close>Đóng</button></div><label class="cad-kind">Loại bản vẽ <select data-cad-kind><option value="pair">Mặt bằng + mặt cắt · chung một file</option><option value="plan">Mặt bằng cabin</option><option value="section">Mặt cắt theo số điểm dừng</option></select></label><details class="cad-help"><summary>Thông tin thêm</summary><p data-cad-description></p><p class="cad-details"></p><p>DXF mở bằng AutoCAD, đơn vị mm. Bản vẽ dự thảo; kiểm tra thiết bị và thông số công trình trước khi sử dụng.</p></details><form class="cad-geometry-form"></form><p class="cad-error" role="alert"></p><p class="cad-summary" role="status"></p><div class="cad-toolbar cad-zoom"><span>Xem bản vẽ</span><div><button type="button" data-zoom="1">Vừa khung</button> <button type="button" data-zoom="2">Phóng to 2×</button> <button type="button" data-zoom="3">3×</button></div></div><div class="cad-preview"></div><div class="cad-toolbar"><button type="button" data-download>Tải CAD (.dxf)</button><span role="status" class="cad-status"></span></div>';
-document.body.append(cadDialog);let cadDrawing=null,cadResult=null;
+cadDialog.innerHTML='<div class="cad-toolbar"><h2>Bản vẽ CAD dự thảo</h2><button type="button" data-close>Đóng</button></div><label class="cad-kind">Loại bản vẽ <select data-cad-kind><option value="pair">Mặt bằng + mặt cắt · chung một file</option><option value="plan">Mặt bằng cabin</option><option value="section">Mặt cắt theo số điểm dừng</option></select></label><details class="cad-help"><summary>Thông tin thêm</summary><p data-cad-description></p><p class="cad-details"></p><p>DWG mở bằng AutoCAD, đơn vị mm. Bản vẽ dự thảo; kiểm tra thiết bị và thông số công trình trước khi sử dụng.</p></details><form class="cad-geometry-form"></form><p class="cad-error" role="alert"></p><p class="cad-summary" role="status"></p><div class="cad-toolbar cad-zoom"><span>Xem bản vẽ</span><div><button type="button" data-zoom="1">Vừa khung</button> <button type="button" data-zoom="2">Phóng to 2×</button> <button type="button" data-zoom="3">3×</button></div></div><div class="cad-preview"></div><div class="cad-toolbar"><button type="button" data-download>Tải CAD (.dwg)</button><span role="status" class="cad-status"></span></div>';
+document.body.append(cadDialog);let cadDrawing=null,cadResult=null,cadExportBusy=false;
 let cadPreferences={};try{cadPreferences=JSON.parse(localStorage.getItem('viet-chao.cad-project')??'{}')??{}}catch{}
 if(typeof cadPreferences!=='object'||Array.isArray(cadPreferences))cadPreferences={};
 const cadForm=cadDialog.querySelector('form'),cadKind=()=>cadDialog.querySelector('[data-cad-kind]').value;
@@ -61,7 +62,7 @@ function renderCad(manual={}){
   for(const key of ['stops','floorHeight','floorHeights','wallThickness','openingAllowance'])if(manual[key]!=null)cadPreferences[key]=manual[key];
   try{localStorage.setItem('viet-chao.cad-project',JSON.stringify(cadPreferences))}catch{}
   cadDialog.querySelector('.cad-preview').innerHTML=toSvg(cadDrawing);
-  cadDialog.querySelector('[data-download]').disabled=false;
+  cadDialog.querySelector('[data-download]').disabled=cadExportBusy;
   const o=cadResult.outputs,sg=cadDrawing.sheets?.section.geometry??cadDrawing.geometry;
   cadDialog.querySelector('.cad-summary').textContent=(cadKind()!=='plan'?`${sg.stops} điểm dừng · ${format(sg.travel/1000)} m · `:'')+`Giếng ${format(o.AH)} × ${format(o.BH)} · OH ${format(o.OH)} · PIT ${format(o.PD)} mm`;
   cadDialog.querySelector('.cad-details').textContent=(cadKind()!=='plan'?sg.warnings.join(' '):'')+' ';
@@ -90,4 +91,16 @@ document.addEventListener('click',event=>{
 });
 cadForm.onsubmit=event=>{event.preventDefault();renderCad(cadOptions())};
 cadForm.oninput=()=>{cadDrawing=null;cadDialog.querySelector('[data-download]').disabled=true;cadDialog.querySelector('.cad-summary').textContent='';cadDialog.querySelector('.cad-status').textContent='Cần dựng lại bản vẽ.'};
-cadDialog.querySelector('[data-download]').onclick=()=>{if(!cadDrawing)return;const url=URL.createObjectURL(new Blob([toDxf(cadDrawing)],{type:'application/dxf'})),a=document.createElement('a');a.href=url;a.download=cadDrawing.filename+'.dxf';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);cadDialog.querySelector('.cad-status').textContent='Đã tạo DXF.'};
+cadDialog.querySelector('[data-download]').onclick=async()=>{
+ if(!cadDrawing||cadExportBusy)return;
+ const drawing=cadDrawing,button=cadDialog.querySelector('[data-download]'),status=cadDialog.querySelector('.cad-status');
+ cadExportBusy=true;button.disabled=true;status.textContent='Đang tạo DWG…';
+ try{
+  const bytes=await toDwg(toDxf(drawing));
+  if(cadDrawing!==drawing||!cadDialog.open)return;
+  const url=URL.createObjectURL(new Blob([bytes],{type:'application/acad'})),a=document.createElement('a');
+  a.href=url;a.download=drawing.filename+'.dwg';document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);status.textContent='Đã tạo DWG.';
+ }catch(error){if(cadDrawing===drawing&&cadDialog.open)status.textContent=error.message}
+ finally{cadExportBusy=false;button.disabled=!cadDrawing}
+};
