@@ -1,10 +1,11 @@
-import {roomDetails} from './cad-room.mjs?v=20260924-release';
-import {userTemplate} from './cad-assets/user-template.mjs?v=20260924-release';
-import {cadCanvas} from './cad-primitives.mjs?v=20260924-release';
-import {display} from './chooser.mjs?v=20260924-release';
+import {roomDetails} from './cad-room.mjs?v=20260924-specdefaults';
+import {userTemplate} from './cad-assets/user-template.mjs?v=20260924-specdefaults';
+import {cadCanvas} from './cad-primitives.mjs?v=20260924-specdefaults';
+import {display} from './chooser.mjs?v=20260924-specdefaults';
 export const templateSource='Bản vẽ gửi CHAT GPT.dwg';
 export const templateHash='69d6b494ca022ddf38f42bdd4b212636159d9825106f2f7e1761305ad4e1483c';
 const supplied=(options,key)=>String(options[key]??'').trim()||'Chưa xác định';
+export const specificationDefaults=Object.freeze({liftName:'P1, P2',usage:'Thang chở khách',control:'VVVF',operation:'Nhóm 02 thang',unservedFloors:'Không',roping:'2 : 1',motorPower:'Theo tiêu chuẩn nhà sản xuất',powerSupply:'AC 3 phase - 380V - 50Hz',lightingSupply:'AC 1 phase - 220V - 50Hz',powerBreaker:'50',powerCable:'16',earthCable:'10',lightingBreaker:'20',lightingCable:'2.5'});
 const fmt=n=>String(Math.round(n*1000)/1000);
 // Rebuild the supplied template's right-hand title block using code. Names and
 // approvals in the example belong to that project and are deliberately blank.
@@ -68,15 +69,15 @@ export function templateView(drawing,title,code,options={}){
  return frameSheet({...drawing,entities,bounds:{left:Math.min(...xs),right:Math.max(...xs),bottom:Math.min(...ys),top:Math.max(...ys)}},title,code,options);
 }
 export function specificationSheet(section,options={}){
- const {result:r,geometry:g}=section,i=r.inputs,o=r.outputs,p=g.project.values,c=cadCanvas(65),w=9400,rowHeight=230,split=3300,refX=6500;
- const rows=[['Tên thang',supplied(options,'liftName')],['Mã hiệu',r.model],['Sử dụng',display(i.USE??i.APP??'')||supplied(options,'usage')],['Loại thang',g.mrl?'Không phòng máy':'Có phòng máy'],['Tải trọng',`${i.CAP} kg`],['Tốc độ',`${i.SPD} m/s`],['Điều khiển',supplied(options,'control')],['Vận hành',supplied(options,'operation')],['Tầng / điểm dừng / cửa',`${g.stops} / ${g.stops} / ${supplied(options,'doorCount')}`],['Tên tầng phục vụ',supplied(options,'servedFloors')],['Tên tầng không phục vụ',supplied(options,'unservedFloors')],['Hành trình',`${fmt(g.travel)} mm`],['Kích thước cabin (W × D × H)',`${i.AA} × ${i.BB} × ${i.HL} mm`],['Kích thước cửa (W × H)',`${i.JJ} × ${i.HH} mm`],['Kiểu mở cửa',display(i.DRKI)],['Kích thước giếng AH × BH',`${o.AH} × ${o.BH} mm`],['OH công trình / tối thiểu',`${p.OH} / ${g.project.minimums.OH} mm`],['pit công trình / tối thiểu',`${p.PD} / ${g.project.minimums.PD} mm`],...g.mrl?[]:[['Cao phòng máy hm',g.room?`${g.room} mm`:'Chưa xác định']],['Tỷ số truyền',supplied(options,'roping')],['Công suất động cơ (kW)',supplied(options,'motorPower')],['DỮ LIỆU NGUỒN ĐIỆN / 1 THANG MÁY',''],['Nguồn động lực',supplied(options,'powerSupply')],['Nguồn chiếu sáng',supplied(options,'lightingSupply')],['CB nguồn động lực (A)',supplied(options,'powerBreaker')],['Tiết diện dây chính (mm²)',supplied(options,'powerCable')],['Tiết diện dây tiếp địa (mm²)',supplied(options,'earthCable')],['CB nguồn chiếu sáng (A)',supplied(options,'lightingBreaker')],['Tiết diện dây chiếu sáng (mm²)',supplied(options,'lightingCable')]];
- const sample={'Tên thang':'P1, P2','Mã hiệu':'LEHY-III-S','Sử dụng':'Thang chở khách','Tải trọng':'1050 kg','Tốc độ':'1.0 m/s','Điều khiển':'VVVF','Vận hành':'Nhóm 02 thang','Tầng / điểm dừng / cửa':'04 / 04 / 04','Tên tầng phục vụ':'1, 2, 3, 4','Tên tầng không phục vụ':'Không','Hành trình':'Theo thực tế','Kích thước cabin (W × D × H)':'1400 × 1700 × 2400 mm','Kích thước cửa (W × H)':'900 × 2100 mm','Kiểu mở cửa':'2 cánh mở tâm','Tỷ số truyền':'2 : 1','Công suất động cơ (kW)':'Theo tiêu chuẩn nhà sản xuất','Nguồn động lực':'AC 3 phase - 380V - 50Hz','Nguồn chiếu sáng':'AC 1 phase - 220V - 50Hz','CB nguồn động lực (A)':'50','Tiết diện dây chính (mm²)':'16','Tiết diện dây tiếp địa (mm²)':'10','CB nguồn chiếu sáng (A)':'20','Tiết diện dây chiếu sáng (mm²)':'2.5'};
+ const {result:r,geometry:g}=section,i=r.inputs,o=r.outputs,p=g.project.values,c=cadCanvas(65),w=6500,rowHeight=230,split=3300;
+ const defaults={...specificationDefaults,doorCount:String(g.stops*(i.ENTR==='1D/2D-2G'?2:1)),servedFloors:Array.from({length:g.stops},(_,n)=>String(n+1)).join(', ')};
+ const value=key=>String(options[key]??'').trim()||defaults[key]||'Chưa xác định';
+ const rows=[['Tên thang',value('liftName')],['Mã hiệu',r.model],['Sử dụng',display(i.USE??i.APP??'')||value('usage')],['Loại thang',g.mrl?'Không phòng máy':'Có phòng máy'],['Tải trọng',`${i.CAP} kg`],['Tốc độ',`${i.SPD} m/s`],['Điều khiển',value('control')],['Vận hành',value('operation')],['Tầng / điểm dừng / cửa',`${g.stops} / ${g.stops} / ${value('doorCount')}`],['Tên tầng phục vụ',value('servedFloors')],['Tên tầng không phục vụ',value('unservedFloors')],['Hành trình',`${fmt(g.travel)} mm`],['Kích thước cabin (W × D × H)',`${i.AA} × ${i.BB} × ${i.HL} mm`],['Kích thước cửa (W × H)',`${i.JJ} × ${i.HH} mm`],['Kiểu mở cửa',display(i.DRKI)],['Kích thước giếng AH × BH',`${o.AH} × ${o.BH} mm`],['OH công trình / tối thiểu',`${p.OH} / ${g.project.minimums.OH} mm`],['pit công trình / tối thiểu',`${p.PD} / ${g.project.minimums.PD} mm`],...g.mrl?[]:[['Cao phòng máy hm',g.room?`${g.room} mm`:'Chưa xác định']],['Tỷ số truyền',value('roping')],['Công suất động cơ (kW)',value('motorPower')],['DỮ LIỆU NGUỒN ĐIỆN / 1 THANG MÁY',''],['Nguồn động lực',value('powerSupply')],['Nguồn chiếu sáng',value('lightingSupply')],['CB nguồn động lực (A)',value('powerBreaker')],['Tiết diện dây chính (mm²)',value('powerCable')],['Tiết diện dây tiếp địa (mm²)',value('earthCable')],['CB nguồn chiếu sáng (A)',value('lightingBreaker')],['Tiết diện dây chiếu sáng (mm²)',value('lightingCable')]];
  c.text(0,600,'THÔNG SỐ KỸ THUẬT','TEXT',130);
- c.text(90,160,'THÔNG SỐ','TEXT',80);c.text(split+90,160,'CÔNG TRÌNH','TEXT',80);c.text(refX+90,160,'MẪU THAM KHẢO','TEXT',80);
- c.rect(0,-rows.length*rowHeight,w,rows.length*rowHeight,'FRAME');c.line(split,0,split,-rows.length*rowHeight,'FRAME');c.line(refX,0,refX,-rows.length*rowHeight,'FRAME');
- rows.forEach(([label,value],n)=>{const y=-n*rowHeight;c.line(0,y,w,y,'FRAME');c.text(90,y-140,label,'TEXT',Math.min(65,(split-180)/label.length/.65));c.text(split+90,y-140,value,'TEXT',Math.min(65,(refX-split-180)/Math.max(1,value.length)/.65));const ref=sample[label]??'—';c.text(refX+90,y-140,ref,'NOTES',Math.min(65,(w-refX-180)/Math.max(1,ref.length)/.65));});
- c.text(0,-rows.length*rowHeight-250,'Cột mẫu giữ nguyên số liệu tham khảo; không tự áp dụng số liệu điện / thiết bị cho công trình.','NOTES',65);
- return frameSheet({...section,kind:'specification',entities:c.entities,dimensions:[],rows,sample,bounds:{left:0,right:w,bottom:-rows.length*rowHeight-350,top:850}},'THÔNG SỐ KỸ THUẬT','TS-01',options);
+ c.text(90,160,'THÔNG SỐ','TEXT',80);c.text(split+90,160,'CÔNG TRÌNH','TEXT',80);
+ c.rect(0,-rows.length*rowHeight,w,rows.length*rowHeight,'FRAME');c.line(split,0,split,-rows.length*rowHeight,'FRAME');
+ rows.forEach(([label,value],n)=>{const y=-n*rowHeight;c.line(0,y,w,y,'FRAME');c.text(90,y-140,label,'TEXT',Math.min(65,(split-180)/label.length/.65));c.text(split+90,y-140,value,'TEXT',Math.min(65,(w-split-180)/Math.max(1,value.length)/.65));});
+ return frameSheet({...section,kind:'specification',entities:c.entities,dimensions:[],rows,bounds:{left:0,right:w,bottom:-rows.length*rowHeight-350,top:850}},'THÔNG SỐ KỸ THUẬT','TS-01',options);
 }
 // The supplied sample is the default. Project values override its reference sizes.
 export function machineRoomSheet(section,options={}){

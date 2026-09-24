@@ -1,9 +1,9 @@
-import {projectDimensions} from './cad-project.mjs?v=20260924-release';
-import {cadReference} from './cad-reference.mjs?v=20260924-release';
-import {cadCanvas} from './cad-primitives.mjs?v=20260924-release';
-import {templateParts} from './cad-assets/template-parts.mjs?v=20260924-release';
-import {display} from './chooser.mjs?v=20260924-release';
-import {planGeometry} from './cad-geometry.mjs?v=20260924-release';
+import {projectDimensions} from './cad-project.mjs?v=20260924-specdefaults';
+import {cadReference} from './cad-reference.mjs?v=20260924-specdefaults';
+import {cadCanvas} from './cad-primitives.mjs?v=20260924-specdefaults';
+import {templateParts} from './cad-assets/template-parts.mjs?v=20260924-specdefaults';
+import {display} from './chooser.mjs?v=20260924-specdefaults';
+import {planGeometry} from './cad-geometry.mjs?v=20260924-specdefaults';
 
 const ascii=s=>String(s).replaceAll('×','x').replaceAll('±','+/-').replaceAll('·','|').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').replace(/[^\x20-\x7e]/g,' ').replace(/\s+/g,' ').trim();
 const xml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -86,15 +86,15 @@ export function toDxf(drawing){
  for(const note of drawing.provenance??[])pair(999,ascii(note));
  for(const [key,value] of Object.entries(drawing.geometry.manual))pair(999,`ENGINEERING INPUT ${key} = ${value}`);
  pair(0,'SECTION');pair(2,'HEADER');pair(9,'$ACADVER');pair(1,'AC1009');pair(9,'$DIMTXT');pair(40,drawing.dimensions[0]?.height??28);pair(9,'$DIMASZ');pair(40,10);pair(9,'$DIMCLRD');pair(70,8);pair(9,'$DIMCLRE');pair(70,8);pair(9,'$DIMCLRT');pair(70,3);pair(9,'$DIMTAD');pair(70,1);pair(0,'ENDSEC');
- pair(0,'SECTION');pair(2,'TABLES');pair(0,'TABLE');pair(2,'LAYER');pair(70,16);
- for(const [name,color] of [['WALL',4],['HATCH',8],['OUTLINE',4],['CABIN',7],['DOOR',7],['DIM',8],['DIMTEXT',3],['TEXT',7],['NOTES',7],['FRAME',8],['CENTER',6],['RAIL',7],['COUNTER',7],['EQUIPMENT',4],['ROPE',6],['STRUCTURE',2]]){pair(0,'LAYER');pair(2,name);pair(70,0);pair(62,color);pair(6,'CONTINUOUS')}
+ pair(0,'SECTION');pair(2,'TABLES');pair(0,'TABLE');pair(2,'LAYER');pair(70,17);
+ for(const [name,color] of [['WALL',4],['HATCH',8],['OUTLINE',4],['CABIN',7],['DOOR',7],['DIM',8],['DIMTEXT',3],['TEXT',7],['NOTES',7],['FRAME',8],['CENTER',6],['RAIL',7],['COUNTER',7],['EQUIPMENT',4],['ROPE',6],['STRUCTURE',2],['LEVEL',1]]){pair(0,'LAYER');pair(2,name);pair(70,0);pair(62,color);pair(6,'CONTINUOUS')}
  pair(0,'ENDTAB');
  const b=drawing.bounds,width=b.right-b.left,height=b.top-b.bottom;
  pair(0,'TABLE');pair(2,'VPORT');pair(70,1);pair(0,'VPORT');pair(2,'*ACTIVE');pair(70,0);
  pair(10,0);pair(20,0);pair(11,1);pair(21,1);pair(12,(b.left+b.right)/2);pair(22,(b.bottom+b.top)/2);
  pair(16,0);pair(26,0);pair(36,1);pair(17,0);pair(27,0);pair(37,0);pair(40,Math.max(height,width/1.35)*1.12);pair(41,1.35);pair(42,50);pair(71,0);pair(72,100);pair(90,0);
  pair(0,'ENDTAB');pair(0,'ENDSEC');
- const emit=e=>{pair(0,e.type==='line'?'LINE':'TEXT');pair(8,e.layer);if(e.type==='line'){pair(10,num(e.x1));pair(20,num(e.y1));pair(30,0);pair(11,num(e.x2));pair(21,num(e.y2));pair(31,0)}else{pair(10,num(e.x));pair(20,num(e.y));pair(30,0);pair(40,num(e.size));pair(50,e.rotation??0);pair(1,ascii(e.value))}};
+ const emit=e=>{pair(0,e.type==='line'?'LINE':'TEXT');pair(8,e.layer);if(e.color)pair(62,e.color);if(e.type==='line'){pair(10,num(e.x1));pair(20,num(e.y1));pair(30,0);pair(11,num(e.x2));pair(21,num(e.y2));pair(31,0)}else{pair(10,num(e.x));pair(20,num(e.y));pair(30,0);pair(40,num(e.size));pair(50,e.rotation??0);pair(1,ascii(e.value))}};
  pair(0,'SECTION');pair(2,'BLOCKS');
  drawing.dimensions.forEach((d,index)=>{pair(0,'BLOCK');pair(8,'DIM');pair(2,'*D'+(index+1));pair(70,1);pair(10,0);pair(20,0);pair(30,0);pair(3,'*D'+(index+1));for(const e of drawing.entities.slice(d.start,d.end))emit(e);pair(0,'ENDBLK');pair(8,'DIM')});
  pair(0,'ENDSEC');pair(0,'SECTION');pair(2,'ENTITIES');
@@ -105,6 +105,6 @@ export function toDxf(drawing){
 }
 export function toSvg(d){
  const b=d.bounds,w=b.right-b.left,ht=b.top-b.bottom;
- const colors={WALL:'#16829a',HATCH:'#a2aab1',OUTLINE:'#14283c',CABIN:'#126b54',DOOR:'#086d91',DIM:'#8190a0',DIMTEXT:'#16802e',TEXT:'#14283c',NOTES:'#34465a',FRAME:'#8190a0',CENTER:'#a22492',RAIL:'#b12725',COUNTER:'#087895',EQUIPMENT:'#006e8a',ROPE:'#a22492',STRUCTURE:'#9b6910'};
- return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.left-30} ${-b.top-30} ${w+60} ${ht+60}" role="img" aria-label="Bản vẽ dự thảo kích thước thang máy"><rect x="${b.left-30}" y="${-b.top-30}" width="${w+60}" height="${ht+60}" fill="white"/>${d.entities.map(e=>e.type==='line'?`<line x1="${e.x1}" y1="${-e.y1}" x2="${e.x2}" y2="${-e.y2}" stroke="${colors[e.layer]}" stroke-width="${d.kind==='section'?(e.layer==='HATCH'?.45:.8):3}" ${d.kind==='section'?'vector-effect="non-scaling-stroke"':''}/>`:`<text x="${e.x}" y="${-e.y}" fill="${colors[e.layer]}" font-family="Arial,sans-serif" font-size="${e.size}" transform="rotate(${-e.rotation||0} ${e.x} ${-e.y})">${xml(e.value)}</text>`).join('')}</svg>`;
+ const colors={WALL:'#16829a',HATCH:'#a2aab1',OUTLINE:'#14283c',CABIN:'#126b54',DOOR:'#086d91',DIM:'#8190a0',DIMTEXT:'#16802e',TEXT:'#14283c',NOTES:'#34465a',FRAME:'#8190a0',CENTER:'#a22492',RAIL:'#b12725',COUNTER:'#087895',EQUIPMENT:'#006e8a',ROPE:'#a22492',STRUCTURE:'#9b6910',LEVEL:'#d12b2b'};
+ return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.left-30} ${-b.top-30} ${w+60} ${ht+60}" role="img" aria-label="Bản vẽ dự thảo kích thước thang máy"><rect x="${b.left-30}" y="${-b.top-30}" width="${w+60}" height="${ht+60}" fill="white"/>${d.entities.map(e=>e.type==='line'?`<line x1="${e.x1}" y1="${-e.y1}" x2="${e.x2}" y2="${-e.y2}" stroke="${e.color?({1:'#d12b2b',2:'#9b6910',3:'#16802e',4:'#16829a',5:'#315fc2',6:'#a22492',7:'#14283c',8:'#8190a0',9:'#8190a0'}[e.color]??colors[e.layer]):colors[e.layer]}" stroke-width="${d.kind==='section'?(e.layer==='HATCH'?.45:.8):3}" ${d.kind==='section'?'vector-effect="non-scaling-stroke"':''}/>`:`<text x="${e.x}" y="${-e.y}" fill="${colors[e.layer]}" font-family="Arial,sans-serif" font-size="${e.size}" transform="rotate(${-e.rotation||0} ${e.x} ${-e.y})">${xml(e.value)}</text>`).join('')}</svg>`;
 }

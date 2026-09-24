@@ -1,10 +1,10 @@
-import {userTemplate} from './cad-assets/user-template.mjs?v=20260924-release';
-import {roomDetails} from './cad-room.mjs?v=20260924-release';
-import {sectionMechanics} from './cad-mechanics.mjs?v=20260924-release';
-import {projectDimensions} from './cad-project.mjs?v=20260924-release';
-import {cadReference} from './cad-reference.mjs?v=20260924-release';
-import {evaluate,models,Workbook,display} from './chooser.mjs?v=20260924-release';
-import {cadCanvas} from './cad-primitives.mjs?v=20260924-release';
+import {userTemplate} from './cad-assets/user-template.mjs?v=20260924-specdefaults';
+import {roomDetails} from './cad-room.mjs?v=20260924-specdefaults';
+import {sectionMechanics} from './cad-mechanics.mjs?v=20260924-specdefaults';
+import {projectDimensions} from './cad-project.mjs?v=20260924-specdefaults';
+import {cadReference} from './cad-reference.mjs?v=20260924-specdefaults';
+import {evaluate,models,Workbook,display} from './chooser.mjs?v=20260924-specdefaults';
+import {cadCanvas} from './cad-primitives.mjs?v=20260924-specdefaults';
 
 const number=n=>String(Math.round(n*1000)/1000);
 const level=z=>(z>=0?'+':'')+(z/1000).toFixed(3);
@@ -62,7 +62,10 @@ export function sectionDrawingFor(result,options={}){
  const vertical=options.orientation!=='horizontal';
  const h=110,step=400;
  const canvas=cadCanvas(h);
- const {entities,dimensions,line,text,rect,axis,dh,dv,wallRect}=canvas;
+ const {entities,dimensions,line,text,rect,dh,dv}=canvas;
+ // The supplied section uses clean wall outlines, without concrete hatching.
+ const wallRect=(x,y,w,d)=>{if(w>0&&d>0)rect(x,y,w,d,'WALL')};
+ const axis=(x,y1,_,y2)=>{for(let y=y1;y<y2;y+=500)line(x,y,x,Math.min(y+320,y2),'LEVEL')};
  const slabReach=850;
  const sectionWall=side=>{
   let cursor=pit;
@@ -76,29 +79,24 @@ export function sectionDrawingFor(result,options={}){
   const x=-z;
   wallRect(x,-slabReach,wall,slabReach-wall);
   line(x,-slabReach,x,0,'WALL');
-  // Door leaf in section, with clear opening HH. No invented lintel/reinforcement detail.
-  line(x,0,x-i.HH,0,'DOOR');line(x,35,x-i.HH,35,'DOOR');line(x-i.HH,0,x-i.HH,35,'DOOR');
   if(i.ENTR==='1D/2D-2G'){
    wallRect(x,o.BH+wall,wall,slabReach-wall);
-   line(x,o.BH,x-i.HH,o.BH,'DOOR');line(x,o.BH-35,x-i.HH,o.BH-35,'DOOR');
   }
   if(n<levels.length-1)dh(x-i.HH,x,0,-950,`hh.${number(i.HH)}`);
-  axis(x,-slabReach-100,x,o.BH+wall+150);
+  axis(x,-2200,x,o.BH+wall+150);
   // Repeated floor markers and levels, following the source sheet's reading direction.
-  line(x,-1050,x,-1690,'DIM');line(x,-1050,x-100,-1200,'TEXT');line(x-100,-1200,x+100,-1200,'TEXT');line(x+100,-1200,x,-1050,'TEXT');
-  text(x+140,-1390,`ĐD ${String(n+1).padStart(2,'0')}`,'TEXT',h);
+  line(x,-2200,x,-1550,'TEXT');line(x,-2050,x-120,-2130,'TEXT');line(x-120,-2130,x-120,-1970,'TEXT');line(x-120,-1970,x,-2050,'TEXT');
+  text(x+140,-1390,`Tầng ${n+1}`,'TEXT',h);
   text(x+140,-1580,level(z),'TEXT',h);
   if(n<heights.length)dh(-levels[n+1],x,o.BH+wall,o.BH+wall+step,number(heights[n]));
  }
  // Full traced assembly at the top stop, matching the user's MR/MRL sample.
  g.mechanics=sectionMechanics(g,canvas);
- dh(-travel-i.HL,-travel,g.carFront,-560,`HL = ${number(i.HL)}`);
  dh(-travel-i.HH,-travel,0,-950,`hh.${number(i.HH)}`);
  dh(-top,-travel,o.BH+wall,o.BH+wall+step*2,`OH.${number(o.OH)}`);
  dh(-travel,0,o.BH+wall,o.BH+wall+step*2,`tr-${number(travel)}`);
  dh(0,-pit,o.BH+wall,o.BH+wall+step*2,`pit.${number(o.PD)}`);
  dh(-top,-pit,o.BH+wall,o.BH+wall+step*3,`${number(top-pit)}`);
- dv(0,o.BH,-pit,-pit+step*1.7,`BH = ${number(o.BH)}`);
  // Source bb is cabin depth, never shaft depth BH.
  dv(g.carFront,g.carFront+i.BB,-travel,-travel+600,`bb.${number(i.BB)}`);
  let left=-top-wall;
@@ -110,7 +108,9 @@ export function sectionDrawingFor(result,options={}){
   wallRect(-roomTop,o.BH,room-recess.height,wall);wallRect(-roomFloor-recess.height,o.BH+recess.depth,recess.height,wall-recess.depth);
   rect(-roomFloor-recess.height,-recess.depth,recess.height,recess.depth,'STRUCTURE');rect(-roomFloor-recess.height,o.BH,recess.height,recess.depth,'STRUCTURE');
   wallRect(-roomTop-wall,-wall,wall,o.BH+2*wall);
-  text(-roomTop+200,o.BH/2,'PHÒNG MÁY','TEXT',h);
+  axis(-roomFloor,-2200,-roomFloor,o.BH+wall+150);
+  text(-roomFloor-150,-2050,'Phòng máy','TEXT',h);
+  text(-roomFloor+80,-2050,level(roomFloor),'TEXT',h);
   dh(-roomTop,-roomFloor,o.BH+wall,o.BH+wall+step*2,`hm.${number(room)}`);
   left=-roomTop-wall;
  }
@@ -130,7 +130,7 @@ export function sectionDrawingFor(result,options={}){
   }
   // Keep the floor name and elevation on separate lines after turning the section.
   for(const [n,z] of levels.entries()){
-   const name=entities.find(e=>e.type==='text'&&e.value===`ĐD ${String(n+1).padStart(2,'0')}`);
+   const name=entities.find(e=>e.type==='text'&&e.value===`Tầng ${n+1}`);
    const elevation=entities.find(e=>e.type==='text'&&e.value===level(z));
    name.x=-2050;name.y=z+150;elevation.x=-2050;elevation.y=z-80;
   }

@@ -1,6 +1,6 @@
-import {templateView,specificationSheet,machineRoomSheet} from './cad-template.mjs?v=20260924-release';
-import {drawingFor} from './cad.mjs?v=20260924-release';
-import {sectionDrawingFor} from './cad-section.mjs?v=20260924-release';
+import {templateView,specificationSheet,machineRoomSheet} from './cad-template.mjs?v=20260924-specdefaults';
+import {drawingFor} from './cad.mjs?v=20260924-specdefaults';
+import {sectionDrawingFor} from './cad-section.mjs?v=20260924-specdefaults';
 
 // Recompute travel first so both sheets always share the same workbook result.
 export function drawingPairFor(result,options={}){

@@ -1,4 +1,4 @@
-import {userTemplate as template} from './cad-assets/user-template.mjs?v=20260924-release';
+import {userTemplate as template} from './cad-assets/user-template.mjs?v=20260924-specdefaults';
 
 // Piecewise presentation anchors preserve cabin/shaft boundaries. These vectors
 // reproduce the supplied reference; they do not select a machine or size a beam.
@@ -22,17 +22,36 @@ export function sectionMechanics(g,canvas){
  const emit=(line,record,part)=>{
   const role=record.role,center=/CENTER|中心/.test(record.layer),layer=center?'CENTER':role==='ropes'?'ROPE':role==='hook'?'STRUCTURE':role==='pitAssembly'?'COUNTER':role==='carAssembly'?'CABIN':'EQUIPMENT';
   const [a,z,b,w]=line;canvas.line(-z,a,-w,b,layer);
-  Object.assign(canvas.entities.at(-1),{component:role,sourcePart:part,sourceHandle:record.sourceHandle,referenceGraphic:true});
+  Object.assign(canvas.entities.at(-1),{component:role,sourcePart:part,sourceHandle:record.sourceHandle,color:record.color,referenceGraphic:true});
   components[role]=(components[role]??0)+1;
  };
- for(const name of names)for(const record of template.parts[name].records)for(const segment of record.segments)for(const line of mappedSegments(segment,xKnots,yKnots,mapX,mapY))emit(line,record,name);
+ // Hold the pit equipment, machine and hook at their support elevations.
+ // Changing travel must stretch the free rope span, not the counterweight body.
+ const pitTop=2311.96597, pitShift=g.pit+s.pit;
+ const carBottom=s.travel-335, carShift=g.travel-s.travel;
+ const equipmentY=value=>{
+  if(value<=pitTop)return value+pitShift;
+  if(value<carBottom)return pitTop+pitShift+(value-pitTop)*(carBottom+carShift-pitTop-pitShift)/(carBottom-pitTop);
+  if(value<s.travel)return value+carShift;
+  return mapY(value);
+ };
+ const equipmentKnots=[...yKnots,[pitTop,0],[carBottom,0]];
+ for(const name of names){
+  const hook=name.endsWith('Hook'),machine=name==='mrMachine';
+  const y=hook?(v=>v+(g.mrl?g.top-s.ceiling:g.top+g.wall+g.room-s.roof)):
+   machine?(v=>v+g.top+g.wall-s.roomFloor):equipmentY;
+  // Keep rope attachment heights aligned with the translated MR machine.
+  const ropeY=v=>!g.mrl&&v>=s.roomFloor?v+g.top+g.wall-s.roomFloor:y(v);
+  for(const record of template.parts[name].records)for(const segment of record.segments)
+   for(const line of mappedSegments(segment,xKnots,equipmentKnots,mapX,ropeY))emit(line,record,name);
+ }
  // Repeat the source landing-door assembly at the actual stop elevations.
  // Clear door height is driven by HH; front/rear doors share the same detail.
  for(const z of g.levels)for(const record of template.parts.landingDoor.records)for(const [a,b,c,d] of record.segments){
   for(const rear of [false,...i.ENTR==='1D/2D-2G'?[true]:[]]){
    const x=q=>rear?g.result.outputs.BH-q:q;
    canvas.line(-(z+b*i.HH/2100),x(a),-(z+d*i.HH/2100),x(c),'DOOR');
-   Object.assign(canvas.entities.at(-1),{component:'landingDoor',sourcePart:'landingDoor',sourceHandle:record.sourceHandle,referenceGraphic:true});
+   Object.assign(canvas.entities.at(-1),{component:'landingDoor',sourcePart:'landingDoor',sourceHandle:record.sourceHandle,color:record.color,referenceGraphic:true});
    components.landingDoor=(components.landingDoor??0)+1;
   }
  }
