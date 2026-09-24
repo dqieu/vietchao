@@ -1,3 +1,7 @@
+import {userTemplate} from './cad-assets/user-template.mjs';
+import {roomDetails} from './cad-room.mjs?v=20260924-template-review';
+import {sectionMechanics} from './cad-mechanics.mjs?v=20260924-template-review';
+import {projectDimensions} from './cad-project.mjs';
 import {cadReference} from './cad-reference.mjs?v=20260921-compact';
 import {evaluate,models,Workbook,display} from './chooser.mjs?v=20260921-compact';
 import {cadCanvas} from './cad-primitives.mjs';
@@ -38,25 +42,27 @@ export function sectionGeometry(result,options={}){
  if(heights.some(v=>v<openingHeight+wall))throw new Error(`Chiều cao tầng phải từ ${number(openingHeight+wall)} mm để lỗ cửa và sàn dự thảo không chồng nhau.`);
  const mrl=r.model.startsWith('LEHY-L-');
  if(mrl&&Number(options.machineRoomHeight)>0)throw new Error('Dòng không phòng máy: không nhập chiều cao phòng máy.');
- const room=options.machineRoomHeight==null||options.machineRoomHeight===''?(r.outputs.HM??0):Number(options.machineRoomHeight);
+ const room=options.machineRoomHeight==null||options.machineRoomHeight===''?(mrl?0:(r.outputs.HM??(userTemplate.section.roof-userTemplate.section.roomFloor))):Number(options.machineRoomHeight);
  if(!Number.isFinite(room)||room<0||room>10000)throw new Error('Cao phòng máy: nhập 0–10000 mm, hoặc để trống dùng HM nếu nguồn có.');
  if(r.outputs.HM&&room<r.outputs.HM)throw new Error(`Cao phòng máy không được nhỏ hơn HM = ${r.outputs.HM} mm trong bảng tính.`);
  const carFront=source.B_3.value+source.DKWC.value+source.KAKK.value;
  if(carFront+r.inputs.BB>r.outputs.BH||source.B_3.value+source.BS.value>r.outputs.BH)throw new Error('Bao cabin vượt chiều sâu giếng theo dữ liệu nguồn.');
- const top=travel+r.outputs.OH,pit=-r.outputs.PD;
- return {result:r,source,manual:{stops,floorHeights:heights.join(';'),wallThickness:wall,...options.machineRoomHeight!=null&&options.machineRoomHeight!==''?{machineRoomHeight:room}:{}},stops,heights,levels,travel,wall,room,top,pit,carFront,mrl,openingHeight,roughHead,
-  warnings:[...!model.inputs.TR?['Dòng này không có đầu vào TR; bảng tính không kiểm tra giới hạn hành trình.']:[],...!room&&!mrl?['Chưa bố trí phòng máy: nguồn không có HM; bổ sung nếu công trình yêu cầu.']:[],...r.inputs.ENTR==='1D/2D-2G'?['Cửa xuyên cabin đang thể hiện hai phía tại mọi điểm dừng; cần xác nhận lịch mở cửa.']:[]]};
+ const project=projectDimensions(r,options);
+ const top=travel+project.values.OH,pit=-project.values.PD;
+ return {result:r,source,project,manual:{OH:project.values.OH,PD:project.values.PD,stops,floorHeights:heights.join(';'),wallThickness:wall,...options.machineRoomHeight!=null&&options.machineRoomHeight!==''?{machineRoomHeight:room}:{}},stops,heights,levels,travel,wall,room,roomHeightBasis:options.machineRoomHeight!=null&&options.machineRoomHeight!==''?'project':r.outputs.HM?'workbook':mrl?'none':'user-template',top,pit,carFront,mrl,openingHeight,roughHead,
+  warnings:[...!model.inputs.TR?['Dòng này không có đầu vào TR; bảng tính không kiểm tra giới hạn hành trình.']:[],...!room&&!mrl?['Chưa bố trí phòng máy.']:[],...!mrl&&!r.outputs.HM&&(options.machineRoomHeight==null||options.machineRoomHeight==='')?['HM = 2200 mm theo mẫu tham khảo; có thể sửa theo công trình.']:[],...r.inputs.ENTR==='1D/2D-2G'?['Cửa xuyên cabin đang thể hiện hai phía tại mọi điểm dừng; cần xác nhận lịch mở cửa.']:[]]};
 }
 
 // Build in the original installation-template axes, then turn upright for SMEC.
 // Both orientations retain physical millimetres.
 export function sectionDrawingFor(result,options={}){
- const g=sectionGeometry(result,options),r=g.result,i=r.inputs,o=r.outputs;
+ const g=sectionGeometry(result,options),r=g.result,i=r.inputs,o={...r.outputs,...g.project.values};
  const {wall,travel,top,pit,levels,heights,room}=g;
  const reference=cadReference(r,'section');
  const vertical=options.orientation!=='horizontal';
  const h=110,step=400;
- const {entities,dimensions,line,text,rect,axis,dh,dv,wallRect}=cadCanvas(h);
+ const canvas=cadCanvas(h);
+ const {entities,dimensions,line,text,rect,axis,dh,dv,wallRect}=canvas;
  const slabReach=850;
  const sectionWall=side=>{
   let cursor=pit;
@@ -76,6 +82,7 @@ export function sectionDrawingFor(result,options={}){
    wallRect(x,o.BH+wall,wall,slabReach-wall);
    line(x,o.BH,x-i.HH,o.BH,'DOOR');line(x,o.BH-35,x-i.HH,o.BH-35,'DOOR');
   }
+  if(n<levels.length-1)dh(x-i.HH,x,0,-950,`hh.${number(i.HH)}`);
   axis(x,-slabReach-100,x,o.BH+wall+150);
   // Repeated floor markers and levels, following the source sheet's reading direction.
   line(x,-1050,x,-1690,'DIM');line(x,-1050,x-100,-1200,'TEXT');line(x-100,-1200,x+100,-1200,'TEXT');line(x+100,-1200,x,-1050,'TEXT');
@@ -83,27 +90,28 @@ export function sectionDrawingFor(result,options={}){
   text(x+140,-1580,level(z),'TEXT',h);
   if(n<heights.length)dh(-levels[n+1],x,o.BH+wall,o.BH+wall+step,number(heights[n]));
  }
- // Cabin body at lowest stop. HC/HL and front offset are source-derived; the
- // assembly below the floor, sling, buffers and roping are deliberately unspecified.
- const y=g.carFront,outerY=g.source.B_3.value,outerDepth=g.source.BS.value;
- rect(-o.HC,outerY,o.HC,outerDepth,'CABIN');
- rect(-i.HL,y,i.HL,i.BB,'CABIN');
- line(-i.HH,outerY,-i.HH,y,'DOOR');
- line(0,y,-i.HL,y+i.BB,'CENTER');line(0,y+i.BB,-i.HL,y,'CENTER');
- text(-i.HL+120,y+i.BB/2,'CABIN','CABIN',h*.85);
- dh(-i.HL,0,outerY,-560,`HL = ${number(i.HL)}`);
- dh(-i.HH,0,0,-950,`HH = ${number(i.HH)}`);
- dh(-top,-travel,o.BH+wall,o.BH+wall+step*2,`OH = ${number(o.OH)}`);
- dh(-travel,0,o.BH+wall,o.BH+wall+step*2,`TR = ${number(travel)}`);
- dh(0,-pit,o.BH+wall,o.BH+wall+step*2,`PIT = ${number(o.PD)}`);
- dh(-top,-pit,o.BH+wall,o.BH+wall+step*3,`OH + TR + PIT = ${number(top-pit)}`);
+ // Full traced assembly at the top stop, matching the user's MR/MRL sample.
+ g.mechanics=sectionMechanics(g,canvas);
+ dh(-travel-i.HL,-travel,g.carFront,-560,`HL = ${number(i.HL)}`);
+ dh(-travel-i.HH,-travel,0,-950,`hh.${number(i.HH)}`);
+ dh(-top,-travel,o.BH+wall,o.BH+wall+step*2,`OH.${number(o.OH)}`);
+ dh(-travel,0,o.BH+wall,o.BH+wall+step*2,`tr-${number(travel)}`);
+ dh(0,-pit,o.BH+wall,o.BH+wall+step*2,`pit.${number(o.PD)}`);
+ dh(-top,-pit,o.BH+wall,o.BH+wall+step*3,`${number(top-pit)}`);
  dv(0,o.BH,-pit,-pit+step*1.7,`BH = ${number(o.BH)}`);
+ // Source bb is cabin depth, never shaft depth BH.
+ dv(g.carFront,g.carFront+i.BB,-travel,-travel+600,`bb.${number(i.BB)}`);
  let left=-top-wall;
  if(room){
   const roomFloor=top+wall,roomTop=roomFloor+room;
-  wallRect(-roomTop,-wall,room,wall);wallRect(-roomTop,o.BH,room,wall);wallRect(-roomTop-wall,-wall,wall,o.BH+2*wall);
+  g.roomDetails=roomDetails(g,options);
+  const recess=g.roomDetails.beam;
+  wallRect(-roomTop,-wall,room-recess.height,wall);wallRect(-roomFloor-recess.height,-wall,recess.height,wall-recess.depth);
+  wallRect(-roomTop,o.BH,room-recess.height,wall);wallRect(-roomFloor-recess.height,o.BH+recess.depth,recess.height,wall-recess.depth);
+  rect(-roomFloor-recess.height,-recess.depth,recess.height,recess.depth,'STRUCTURE');rect(-roomFloor-recess.height,o.BH,recess.height,recess.depth,'STRUCTURE');
+  wallRect(-roomTop-wall,-wall,wall,o.BH+2*wall);
   text(-roomTop+200,o.BH/2,'PHÒNG MÁY','TEXT',h);
-  dh(-roomTop,-roomFloor,o.BH+wall,o.BH+wall+step*2,`HM = ${number(room)}`);
+  dh(-roomTop,-roomFloor,o.BH+wall,o.BH+wall+step*2,`hm.${number(room)}`);
   left=-roomTop-wall;
  }
  if(vertical){
@@ -127,6 +135,14 @@ export function sectionDrawingFor(result,options={}){
    name.x=-2050;name.y=z+150;elevation.x=-2050;elevation.y=z-80;
   }
  }
+ // The source labels the lifting hook in both MR and MRL sections.
+ const hookLines=entities.filter(e=>e.type==='line'&&e.component==='hook');
+ if(hookLines.length){
+  const xs=hookLines.flatMap(e=>[e.x1,e.x2]),ys=hookLines.flatMap(e=>[e.y1,e.y2]);
+  const hx=(Math.min(...xs)+Math.max(...xs))/2,hy=Math.max(...ys);
+  const lx=vertical?hx+350:hx-450,ly=hy+350;
+  line(hx,hy,lx,ly-70,'STRUCTURE');text(lx,ly,'Móc treo palang (*)','TEXT',h*.8);
+ }
  // The SMEC manufacturer sections are upright. Keep a compact, readable title strip.
  const drawingTop=room?top+wall+room+wall:top+wall;
  left=vertical?-2200:left-700;
@@ -144,7 +160,7 @@ export function sectionDrawingFor(result,options={}){
  text(left+220,yy(2),`Hành trình ${number(travel/1000)} m | OH ${o.OH} | PIT ${o.PD} | HC ${o.HC} mm`,'TEXT',size);
  text(left+220,yy(3),'Cốt ±0.000 tại điểm dừng thấp nhất; cao độ ghi bằng m. Hình học / DIM: mm.','NOTES',size);
  text(left+220,yy(4),`Vách / sàn ${wall} mm dự thảo. ${g.roughHead?`Lỗ cửa HH+${g.roughHead}=${g.openingHeight} mm theo mẫu.`:'Cửa thể hiện thông thủy HH.'}`,'NOTES',size);
- text(left+220,yy(5),'Chưa triển khai máy kéo, cáp, giảm chấn, dầm và liên kết ray.','NOTES',size);
+ text(left+220,yy(5),'Chi tiết thiết bị / kết cấu theo mẫu tham khảo; xác nhận theo thiết bị chọn.','NOTES',size);
  const noteSize=Math.min(h,(right-mid-420)/87/.6);
  text(mid+220,yy(0),'VIỆT CHÀO | MẶT CẮT DỰ THẢO | MC-01','TEXT',noteSize*1.2);
  text(mid+220,yy(1),g.mrl?'KHÔNG PHÒNG MÁY':room?'CÓ PHÒNG MÁY':'PHÒNG MÁY: CHƯA CÓ CHIỀU CAO','TEXT',noteSize);
@@ -153,6 +169,6 @@ export function sectionDrawingFor(result,options={}){
  text(mid+220,bottom+170,`${r.en81===false?'EN 81-20: OFF | ':''}Nguồn: ${r.file}`,'NOTES',noteSize*.8);
  rect(left,bottom,right-left,upper-bottom,'FRAME');
  return {kind:'section',reference,orientation:vertical?'vertical':'horizontal',entities,dimensions,bounds:{left:left-150,right:right+150,bottom:bottom-150,top:upper+150},result:r,geometry:g,
-  provenance:[reference.file?`Section reference: ${reference.file}; SHA-256: ${reference.sha256}`:reference.basis,vertical?'Section axes: X=shaft depth; Y=elevation.':'Section axes: X=-elevation; Y=shaft depth.',`Stops = ${g.stops}; floor heights bottom-up mm = ${heights.join(';')}`,`Datum lowest stop=0; travel=${travel} mm; top=${top} mm; pit=${pit} mm`,...g.warnings],
+  provenance:[`Equipment reference ${g.mechanics.source}; SHA-256 ${g.mechanics.sha256}; ${JSON.stringify({mode:g.mechanics.mode,components:g.mechanics.components,x:g.mechanics.xKnots,y:g.mechanics.yKnots})}`,g.mechanics.note,reference.file?`Section reference: ${reference.file}; SHA-256: ${reference.sha256}`:reference.basis,vertical?'Section axes: X=shaft depth; Y=elevation.':'Section axes: X=-elevation; Y=shaft depth.',`Stops = ${g.stops}; floor heights bottom-up mm = ${heights.join(';')}`,`Datum lowest stop=0; travel=${travel} mm; top=${top} mm; pit=${pit} mm`,`Room height basis: ${g.roomHeightBasis}.`,...g.warnings],
   filename:`VietChao-${r.model.replace(/[^a-zA-Z0-9-]/g,'_')}-${i.CAP}kg-${g.stops}stops-SECTION-DRAFT`};
 }

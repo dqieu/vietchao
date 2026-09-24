@@ -1,8 +1,9 @@
+import {projectDimensions} from './cad-project.mjs';
 import {cadReference} from './cad-reference.mjs?v=20260921-compact';
 import {cadCanvas} from './cad-primitives.mjs';
 import {templateParts} from './cad-assets/template-parts.mjs';
 import {display} from './chooser.mjs?v=20260921-compact';
-import {planGeometry} from './cad-geometry.mjs?v=20260921-compact';
+import {planGeometry} from './cad-geometry.mjs?v=20260923-template';
 
 const ascii=s=>String(s).replaceAll('×','x').replaceAll('±','+/-').replaceAll('·','|').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').replace(/[^\x20-\x7e]/g,' ').replace(/\s+/g,' ').trim();
 const xml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,6 +13,7 @@ const num=n=>String(Math.round(n*1000)/1000);
 export function drawingFor(result,manual={}){
  const g=planGeometry(result,manual);if(g.missing.length)throw new Error('Cần bổ sung tọa độ trong các ô phía trên, rồi bấm Dựng mặt bằng.');
  const r=g.result,i=r.inputs,o=r.outputs;
+ const project=projectDimensions(r,manual);
  const reference=cadReference(r,'plan',g);
  if(g.autoRear)reference.issues.push('Cửa trước và sau đồng tim cabin theo bố trí cửa mở tim xuyên cabin.');
  const allowance=Number(manual.openingAllowance??200);if(!Number.isFinite(allowance)||allowance<0||allowance>1000)throw new Error('Chừa cửa: nhập tổng phần cộng thêm 0–1000 mm.');
@@ -57,7 +59,7 @@ export function drawingFor(result,manual={}){
  dh(0,o.AH,o.BH,o.BH+step*3,'AH = '+num(o.AH));dh(0,c.cx,o.BH,o.BH+step*2,'HAXX = '+num(c.cx));dh(c.cx,o.AH,o.BH,o.BH+step*2,num(o.AH-c.cx));
  dh(g.rails[0].x,g.rails[1].x,g.railY,o.BH+step,'BG = '+num(g.railGauge));
  dh(c.x,c.x+c.width,c.y+c.depth,c.y+c.depth-step*.5,'AA = '+num(i.AA));
- dv(c.y,c.y+c.depth,c.x,c.x+step*.65,'BB = '+num(i.BB));
+ dv(c.y,c.y+c.depth,c.x,c.x+step*.65,'bb.'+num(i.BB));
  dv(0,o.BH,0,-step*3,'BH = '+num(o.BH));dv(0,g.railY,0,-step*2,'YR = '+num(g.railY));
  dv(0,cw.y,0,-step,'YW = '+num(cw.y));
  dh(0,frontDoor.x,0,-step*2,'DTL = '+num(frontDoor.x));dh(frontDoor.x-i.JJ/2,frontDoor.x+i.JJ/2,0,-step,'JJ = '+num(i.JJ));
@@ -73,7 +75,7 @@ export function drawingFor(result,manual={}){
  text(left+h,bottom+h*1.6,'Ray, cụm cửa và khung đối trọng theo mẫu tham khảo; kiểm tra chọn thiết bị trước thi công.','NOTES',h*.7);
  text(left+h,bottom+h*.5,`${reference.file?'Mẫu: '+reference.file+' | ':''}${r.en81===false?'EN 81-20: OFF | ':''}Nguồn: ${r.file}`,'NOTES',h*.65);
  const bounds={left:left-h,right:right+h,bottom:bottom-h,top:top+h};rect(bounds.left,bounds.bottom,bounds.right-bounds.left,bounds.top-bounds.bottom,'FRAME');
- return {entities,dimensions,bounds,result:r,geometry:g,reference,provenance:[reference.file?`Plan reference: ${reference.file}; SHA-256: ${reference.sha256}`:reference.basis,reference.scope??'',...reference.issues],wallThickness:wall,openingAllowance:allowance,filename:`VietChao-${ascii(r.model).replace(/[^a-zA-Z0-9-]/g,'_')}-${i.CAP}kg-${i.AA}x${i.BB}-PLAN-DRAFT`};
+ return {entities,dimensions,bounds,result:r,geometry:g,project,reference,provenance:[`Project OH=${project.values.OH}; PIT=${project.values.PD}; minimum OH=${project.minimums.OH}; PIT=${project.minimums.PD}.`,reference.file?`Plan reference: ${reference.file}; SHA-256: ${reference.sha256}`:reference.basis,reference.scope??'',...reference.issues],wallThickness:wall,openingAllowance:allowance,filename:`VietChao-${ascii(r.model).replace(/[^a-zA-Z0-9-]/g,'_')}-${i.CAP}kg-${i.AA}x${i.BB}-PLAN-DRAFT`};
 }
 export function toDxf(drawing){
  const rows=[];const pair=(code,value)=>rows.push(String(code),String(value));
@@ -84,8 +86,8 @@ export function toDxf(drawing){
  for(const note of drawing.provenance??[])pair(999,ascii(note));
  for(const [key,value] of Object.entries(drawing.geometry.manual))pair(999,`ENGINEERING INPUT ${key} = ${value}`);
  pair(0,'SECTION');pair(2,'HEADER');pair(9,'$ACADVER');pair(1,'AC1009');pair(9,'$DIMTXT');pair(40,drawing.dimensions[0]?.height??28);pair(9,'$DIMASZ');pair(40,10);pair(9,'$DIMCLRD');pair(70,8);pair(9,'$DIMCLRE');pair(70,8);pair(9,'$DIMCLRT');pair(70,3);pair(9,'$DIMTAD');pair(70,1);pair(0,'ENDSEC');
- pair(0,'SECTION');pair(2,'TABLES');pair(0,'TABLE');pair(2,'LAYER');pair(70,13);
- for(const [name,color] of [['WALL',4],['HATCH',8],['OUTLINE',4],['CABIN',7],['DOOR',7],['DIM',8],['DIMTEXT',3],['TEXT',7],['NOTES',7],['FRAME',8],['CENTER',6],['RAIL',7],['COUNTER',7]]){pair(0,'LAYER');pair(2,name);pair(70,0);pair(62,color);pair(6,'CONTINUOUS')}
+ pair(0,'SECTION');pair(2,'TABLES');pair(0,'TABLE');pair(2,'LAYER');pair(70,16);
+ for(const [name,color] of [['WALL',4],['HATCH',8],['OUTLINE',4],['CABIN',7],['DOOR',7],['DIM',8],['DIMTEXT',3],['TEXT',7],['NOTES',7],['FRAME',8],['CENTER',6],['RAIL',7],['COUNTER',7],['EQUIPMENT',4],['ROPE',6],['STRUCTURE',2]]){pair(0,'LAYER');pair(2,name);pair(70,0);pair(62,color);pair(6,'CONTINUOUS')}
  pair(0,'ENDTAB');
  const b=drawing.bounds,width=b.right-b.left,height=b.top-b.bottom;
  pair(0,'TABLE');pair(2,'VPORT');pair(70,1);pair(0,'VPORT');pair(2,'*ACTIVE');pair(70,0);
@@ -98,11 +100,11 @@ export function toDxf(drawing){
  pair(0,'ENDSEC');pair(0,'SECTION');pair(2,'ENTITIES');
  const hidden=new Set(drawing.dimensions.flatMap(d=>Array.from({length:d.end-d.start},(_,i)=>i+d.start)));
  drawing.entities.forEach((e,index)=>{if(!hidden.has(index))emit(e)});
- drawing.dimensions.forEach((d,index)=>{pair(0,'DIMENSION');pair(8,'DIM');pair(2,'*D'+(index+1));pair(70,32);pair(10,num(d.location[0]));pair(20,num(d.location[1]));pair(30,0);pair(11,num(d.text[0]));pair(21,num(d.text[1]));pair(31,0);pair(1,ascii(d.label).replace(/[0-9.]+$/,'<>'));pair(3,'STANDARD');pair(13,num(d.a[0]));pair(23,num(d.a[1]));pair(33,0);pair(14,num(d.b[0]));pair(24,num(d.b[1]));pair(34,0);pair(50,d.rotation)});
+ drawing.dimensions.forEach((d,index)=>{pair(0,'DIMENSION');pair(8,'DIM');pair(2,'*D'+(index+1));pair(70,32);pair(10,num(d.location[0]));pair(20,num(d.location[1]));pair(30,0);pair(11,num(d.text[0]));pair(21,num(d.text[1]));pair(31,0);pair(1,ascii(d.label).replace(/[0-9]+(?:\.[0-9]+)?$/,'<>'));pair(3,'STANDARD');pair(13,num(d.a[0]));pair(23,num(d.a[1]));pair(33,0);pair(14,num(d.b[0]));pair(24,num(d.b[1]));pair(34,0);pair(50,d.rotation)});
  pair(0,'ENDSEC');pair(0,'EOF');return rows.join('\r\n')+'\r\n';
 }
 export function toSvg(d){
  const b=d.bounds,w=b.right-b.left,ht=b.top-b.bottom;
- const colors={WALL:'#16829a',HATCH:'#a2aab1',OUTLINE:'#14283c',CABIN:'#126b54',DOOR:'#086d91',DIM:'#8190a0',DIMTEXT:'#16802e',TEXT:'#14283c',NOTES:'#34465a',FRAME:'#8190a0',CENTER:'#a22492',RAIL:'#b12725',COUNTER:'#087895'};
+ const colors={WALL:'#16829a',HATCH:'#a2aab1',OUTLINE:'#14283c',CABIN:'#126b54',DOOR:'#086d91',DIM:'#8190a0',DIMTEXT:'#16802e',TEXT:'#14283c',NOTES:'#34465a',FRAME:'#8190a0',CENTER:'#a22492',RAIL:'#b12725',COUNTER:'#087895',EQUIPMENT:'#006e8a',ROPE:'#a22492',STRUCTURE:'#9b6910'};
  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.left-30} ${-b.top-30} ${w+60} ${ht+60}" role="img" aria-label="Bản vẽ dự thảo kích thước thang máy"><rect x="${b.left-30}" y="${-b.top-30}" width="${w+60}" height="${ht+60}" fill="white"/>${d.entities.map(e=>e.type==='line'?`<line x1="${e.x1}" y1="${-e.y1}" x2="${e.x2}" y2="${-e.y2}" stroke="${colors[e.layer]}" stroke-width="${d.kind==='section'?(e.layer==='HATCH'?.45:.8):3}" ${d.kind==='section'?'vector-effect="non-scaling-stroke"':''}/>`:`<text x="${e.x}" y="${-e.y}" fill="${colors[e.layer]}" font-family="Arial,sans-serif" font-size="${e.size}" transform="rotate(${-e.rotation||0} ${e.x} ${-e.y})">${xml(e.value)}</text>`).join('')}</svg>`;
 }
