@@ -1,9 +1,9 @@
 import {sectionDefaults,siteErrors} from './project-state.mjs';
 import {toDwg} from './dwg.mjs?v=20260923';
-import {drawingPackageFor} from './cad-pair.mjs?v=20260924-template-review';
-import {sectionDrawingFor} from './cad-section.mjs?v=20260924-template-review';
+import {drawingPackageFor} from './cad-pair.mjs?v=20260924-cable300';
+import {sectionDrawingFor} from './cad-section.mjs?v=20260924-cable300';
 import {planGeometry,geometryLabels} from './cad-geometry.mjs?v=20260923-template';
-import {drawingFor,toDxf,toSvg} from './cad.mjs?v=20260924-template-review';
+import {drawingFor,toDxf,toSvg} from './cad.mjs?v=20260924-cable300';
 import {models,Workbook,labels,display,unit,evaluate,validateRequest} from './chooser.mjs?v=20260921-compact';
 const $=s=>document.querySelector(s),esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 $('#more-info').onclick=()=>$('#info-dialog').showModal();
@@ -41,7 +41,7 @@ restoreSearch();
 $('#search-form').requestSubmit();
 if(document.modelContext?.registerTool){
  const lifetime=new AbortController();
- const properties={en81:{type:'boolean',description:'Bật bộ lọc diện tích EN 81-20; mặc định bật.'},doorType:{type:'string',enum:['auto','CO','SO','2CO']},capacity:{type:'number',exclusiveMinimum:0,maximum:10000},application:{type:'string',enum:['all','passenger','goods','forklift','car']},entrance:{type:'string',enum:['1D1G','1D/2D-2G']},fire:{type:'string',enum:['NO','YES']},safety:{type:'string',enum:['NO','YES']},decoration:{type:'number',enum:[0,100,200,300,400]},margin:{type:'number',minimum:0}};
+ const properties={en81:{type:'boolean',description:'Bật bộ lọc diện tích EN 81-20; mặc định bật.'},doorType:{type:'string',enum:['auto','CO','SO','2CO']},capacity:{type:'number',exclusiveMinimum:0,maximum:10000},application:{type:'string',enum:['all','passenger','goods','forklift','car']},entrance:{type:'string',enum:['1D1G','1D/2D-2G']},fire:{type:'string',enum:['NO','YES']},safety:{type:'string',enum:['NO','YES']},margin:{type:'number',minimum:0}};
  for(const k of ['width','depth','overhead','pit','travel','speed','doorWidth','carWidth','carDepth'])properties[k]={type:'number',exclusiveMinimum:0};
  try{Promise.resolve(document.modelContext.registerTool({name:'find_elevator_configurations',title:'Tìm cấu hình thang máy',description:'Đặt điều kiện trong giao diện và tìm cấu hình sơ bộ từ sáu bảng tính Shanghai Mitsubishi. Chỉ đánh giá bố trí hình học, không xác nhận đặt hàng.',inputSchema:{type:'object',properties,required:['capacity'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:async input=>{
   if(Object.keys(input).some(k=>!Object.hasOwn(properties,k)))throw new Error('Có trường không được hỗ trợ.');
@@ -97,7 +97,7 @@ function renderCad(manual={}){
   cadDialog.querySelector('[data-download]').disabled=cadExportBusy;
   const o={...cadResult.outputs,...(cadDrawing.sheets?.section.geometry.project?.values??cadDrawing.geometry.project?.values??cadDrawing.project?.values)},sg=cadDrawing.sheets?.section.geometry??cadDrawing.geometry;
   cadDialog.querySelector('.cad-summary').textContent=(cadKind()!=='plan'?`${sg.stops} điểm dừng · ${format(sg.travel/1000)} m · `:'')+`Giếng ${format(o.AH)} × ${format(o.BH)} · OH ${format(o.OH)} · PIT ${format(o.PD)} mm`;
-  cadDialog.querySelector('.cad-details').textContent=(cadKind()!=='plan'?sg.warnings.join(' ')+' Chi tiết máy/cáp dựng lại từ DWG mẫu. Lỗ cáp dùng ghi chú 250×250; nét vẽ gốc đo 300×300.':'')+' ';
+  cadDialog.querySelector('.cad-details').textContent=(cadKind()!=='plan'?sg.warnings.join(' ')+' Chi tiết máy/cáp dựng lại từ DWG mẫu. Lỗ cáp mặc định 300×300 mm theo xác nhận; chiều sâu cabin bb theo cấu hình thực tế.':'')+' ';
  const refs=cadDrawing.sheets?[cadDrawing.sheets.plan.reference,cadDrawing.sheets.section.reference]:[cadDrawing.reference];
   cadDialog.querySelector('.cad-details').textContent+=' '+refs.map((ref,n)=>(cadDrawing.sheets?(n?'Mặt cắt: ':'Mặt bằng: '):'Mẫu: ')+(ref.file??ref.basis)+(ref.issues.length?' '+ref.issues.join(' '):'')).join(' · ');
  }catch(error){cadDialog.querySelector('.cad-error').textContent=error.message}
@@ -127,7 +127,7 @@ document.addEventListener('click',event=>{
  const specFields={liftName:'Tên thang',usage:'Sử dụng',client:'Chủ đầu tư',director:'Tổng giám đốc',designer:'Thiết kế',checker:'Kiểm tra',approver:'Duyệt',revision:'Hiệu chỉnh',issueDate:'Ngày xuất bản',projectName:'Dự án',location:'Địa điểm',control:'Điều khiển',operation:'Vận hành',doorCount:'Số cửa tầng',servedFloors:'Tên tầng phục vụ',unservedFloors:'Tầng không phục vụ',roping:'Tỷ số truyền',motorPower:'Công suất động cơ · kW',powerSupply:'Nguồn động lực',lightingSupply:'Nguồn chiếu sáng',powerBreaker:'CB động lực · A',powerCable:'Dây chính · mm²',earthCable:'Dây tiếp địa · mm²',lightingBreaker:'CB chiếu sáng · A',lightingCable:'Dây chiếu sáng · mm²'};
  const extra=document.createElement('details');extra.className='cad-floor-options';extra.innerHTML='<summary>Khung tên / bảng thông số</summary>'+Object.entries(specFields).map(([key,label])=>`<label>${label}<input name="${key}" type="text" maxlength="100" placeholder="Chưa xác định"></label>`).join('');cadForm.insertBefore(extra,cadForm.querySelector('button[type="submit"]'));
  if(!mrl){const room=document.createElement('details');room.className='cad-floor-options';
-  const fields={cableHoleSize:['Cạnh lỗ cáp · mm',250],installationHoleSize:['Cạnh lỗ thi công · mm',800],beamWidth:['Rộng lỗ chờ dầm · mm',1200],beamDepth:['Sâu lỗ chờ dầm · mm',150],beamHeight:['Cao lỗ chờ dầm · mm',650],hookLoad:['Tải móc treo tham khảo · kN',25]};
+  const fields={cableHoleSize:['Cạnh lỗ cáp · mm',300],installationHoleSize:['Cạnh lỗ thi công · mm',800],beamWidth:['Rộng lỗ chờ dầm · mm',1200],beamDepth:['Sâu lỗ chờ dầm · mm',150],beamHeight:['Cao lỗ chờ dầm · mm',650],hookLoad:['Tải móc treo tham khảo · kN',25]};
   room.innerHTML='<summary>Lỗ chờ / kết cấu theo mẫu</summary><p class="helper">Mặc định theo mẫu: lỗ cáp, lỗ thi công, lỗ chờ dầm và móc treo. Có thể sửa theo công trình.</p>'+Object.entries(fields).map(([key,[label,value]])=>`<label>${label}<input name="${key}" type="number" min="0.001" step="any" value="${value}"></label>`).join('')+'<label>Tọa độ lỗ chờ riêng: tên, X, Y, rộng, sâu · mm<textarea name="roomOpenings" rows="4" placeholder="Để trống dùng bố trí mẫu; mỗi dòng một lỗ"></textarea></label>';
   cadForm.insertBefore(room,cadForm.querySelector('button[type="submit"]'));}
 
@@ -142,7 +142,7 @@ $('#technical-form').onsubmit=event=>{event.preventDefault();cadForm.requestSubm
 function invalidateCad(){saveDraft();cadDrawing=null;cadDialog.querySelector('[data-download]').disabled=true;cadDialog.querySelector('.cad-summary').textContent='';cadDialog.querySelector('.cad-status').textContent='Cần dựng lại bản vẽ.'};
 cadForm.oninput=event=>{const key={OH:'overhead',PD:'pit'}[event.target.name];if(key){$('#'+key).value=event.target.value;saveSearch()}invalidateCad()};
 $('#technical-form').oninput=event=>{
- const mapping={SPD:'speed',AA:'carWidth',BB:'carDepth',JJ:'doorWidth',ENTR:'entrance',DRTP:'fire',GOVO:'safety',WADD:'decoration',DRKI:'doorType'};
+ const mapping={SPD:'speed',AA:'carWidth',BB:'carDepth',JJ:'doorWidth',ENTR:'entrance',DRTP:'fire',GOVO:'safety',DRKI:'doorType'};
  const name=event.target.name,key=mapping[name];if(key){$('#search-form').elements.namedItem(key).value=name==='DRKI'&&['2SL','2SR'].includes(event.target.value)?'SO':event.target.value;saveSearch();$('#status').textContent='Cấu hình đã chỉnh. Tìm lại để cập nhật các phương án khác.'}
  invalidateCad();
 };

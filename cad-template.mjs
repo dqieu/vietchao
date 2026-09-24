@@ -1,4 +1,4 @@
-import {roomDetails} from './cad-room.mjs?v=20260924-template-review';
+import {roomDetails} from './cad-room.mjs?v=20260924-cable300';
 import {userTemplate} from './cad-assets/user-template.mjs';
 import {cadCanvas} from './cad-primitives.mjs';
 import {display} from './chooser.mjs?v=20260921-compact';

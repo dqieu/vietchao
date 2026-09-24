@@ -2,7 +2,7 @@ import {userTemplate} from './cad-assets/user-template.mjs';
 const value=(options,key,fallback,label)=>{const raw=options[key],n=raw==null||String(raw).trim()===''?fallback:Number(raw);if(!Number.isFinite(n)||n<=0)throw new Error(`${label}: nhập số dương.`);return n};
 export function roomDetails(g,options={}){
  const s=userTemplate.openings,{AH,BH}=g.result.outputs;
- const cable=value(options,'cableHoleSize',250,'Cạnh lỗ cáp'),installation=value(options,'installationHoleSize',800,'Cạnh lỗ thi công');
+ const cable=value(options,'cableHoleSize',300,'Cạnh lỗ cáp'),installation=value(options,'installationHoleSize',800,'Cạnh lỗ thi công');
  const beam={width:value(options,'beamWidth',1200,'Rộng lỗ chờ dầm'),depth:value(options,'beamDepth',150,'Sâu lỗ chờ dầm'),height:value(options,'beamHeight',650,'Cao lỗ chờ dầm')};
  if(beam.width>AH||beam.depth>g.wall||beam.height>g.room)throw new Error('Lỗ chờ dầm vượt rộng giếng, dày vách hoặc cao phòng máy; điều chỉnh kích thước lỗ chờ.');
  beam.x=(AH-beam.width)/2;beam.y=BH;

@@ -1,6 +1,6 @@
-import {templateView,specificationSheet,machineRoomSheet} from './cad-template.mjs?v=20260924-template-review';
-import {drawingFor} from './cad.mjs?v=20260924-template-review';
-import {sectionDrawingFor} from './cad-section.mjs?v=20260924-template-review';
+import {templateView,specificationSheet,machineRoomSheet} from './cad-template.mjs?v=20260924-cable300';
+import {drawingFor} from './cad.mjs?v=20260924-cable300';
+import {sectionDrawingFor} from './cad-section.mjs?v=20260924-cable300';
 
 // Recompute travel first so both sheets always share the same workbook result.
 export function drawingPairFor(result,options={}){
