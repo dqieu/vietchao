@@ -1,7 +1,7 @@
-import {roomDetails} from './cad-room.mjs?v=20260924-cable300';
-import {userTemplate} from './cad-assets/user-template.mjs';
-import {cadCanvas} from './cad-primitives.mjs';
-import {display} from './chooser.mjs?v=20260921-compact';
+import {roomDetails} from './cad-room.mjs?v=20260924-release';
+import {userTemplate} from './cad-assets/user-template.mjs?v=20260924-release';
+import {cadCanvas} from './cad-primitives.mjs?v=20260924-release';
+import {display} from './chooser.mjs?v=20260924-release';
 export const templateSource='Bản vẽ gửi CHAT GPT.dwg';
 export const templateHash='69d6b494ca022ddf38f42bdd4b212636159d9825106f2f7e1761305ad4e1483c';
 const supplied=(options,key)=>String(options[key]??'').trim()||'Chưa xác định';
